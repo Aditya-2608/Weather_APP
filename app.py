@@ -1,10 +1,10 @@
+import os
 from flask import Flask, render_template, request, jsonify
 import requests
 
 app = Flask(__name__)
 
-# Put your real API key here:
-API_KEY = "9045e3f0e0f24d35f07694f2e1d24555"
+API_KEY = os.getenv("WEATHER_API_KEY")  # Read from env variable
 
 @app.route("/")
 def home():
@@ -57,3 +57,4 @@ def weather():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
