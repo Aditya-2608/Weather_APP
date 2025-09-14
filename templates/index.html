@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Weather Dashboard</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", sans-serif;
+      color: #fff;
+      position: relative;
+      min-height: 100vh;
+
+      /* ✅ fix scroll */
+      overflow-y: auto;   /* vertical scrolling enabled */
+      overflow-x: hidden; /* disable sideways scroll */
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: url('https://cdn.pixabay.com/photo/2025/09/08/19/50/ivy-9823003_1280.jpg') no-repeat center center/cover;
+      filter: blur(12px) brightness(0.6);
+      z-index: -1;
+    }
+
+    .container {
+      max-width: 950px;
+      margin: auto;
+      padding: 20px;
+      text-align: center;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    .search-bar input, .search-bar button {
+      padding: 10px;
+      margin: 5px;
+      border-radius: 8px;
+      border: none;
+      font-size: 16px;
+    }
+
+    .search-bar button {
+      cursor: pointer;
+      background: #444;
+      color: white;
+      transition: background 0.3s;
+    }
+    .search-bar button:hover { background: #666; }
+
+    #weather, #forecast, #tip {
+      margin-top: 20px;
+      background: rgba(255,255,255,0.1);
+      padding: 15px;
+      border-radius: 12px;
+    }
+
+    /* ✅ Forecast scroll (horizontal only) */
+    #forecast-cards {
+      display: flex;
+      gap: 16px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 10px 0;
+      scroll-snap-type: x mandatory;
+    }
+    #forecast-cards::-webkit-scrollbar {
+      height: 8px;
+    }
+    #forecast-cards::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.4);
+      border-radius: 8px;
+    }
+    .forecast-card {
+      flex: 0 0 auto;
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+      padding: 15px;
+      min-width: 160px;
+      scroll-snap-align: start;
+      text-align: center;
+    }
+
+    /* Lottie animation containers */
+    .anim {
+      width: 80px;
+      height: 80px;
+      margin: 10px auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🌦 Weather Dashboard</h1>
+
+    <div class="search-bar">
+      <input type="text" id="cityInput" placeholder="Enter city name">
+      <button id="searchBtn">Search</button>
+      <button id="locationBtn">📍 Use My Location</button>
+    </div>
+
+    <div id="weather"></div>
+    <div id="forecast">
+      <h3>Forecast</h3>
+      <div id="forecast-cards"></div>
+    </div>
+    <div id="tip"></div>
+  </div>
+
+  <!-- Lottie library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.10.2/lottie.min.js"></script>
+
+  <script>
+    const searchBtn = document.getElementById("searchBtn");
+    const locationBtn = document.getElementById("locationBtn");
+    const cityInput = document.getElementById("cityInput");
+    const weatherDiv = document.getElementById("weather");
+    const forecastCards = document.getElementById("forecast-cards");
+    const tipDiv = document.getElementById("tip");
+
+    async function fetchWeather(query) {
+      try {
+        const response = await fetch(`/weather?${query}`);
+        const data = await response.json();
+
+        if (data.error) {
+          weatherDiv.innerHTML = `<p style="color: red;">${data.error}</p>`;
+          forecastCards.innerHTML = "";
+          tipDiv.innerHTML = "";
+          return;
+        }
+
+        // Current weather
+        weatherDiv.innerHTML = `
+          <h2>${data.weather.city}</h2>
+          <p>🌡 ${data.weather.temperature}°C (Feels like ${data.weather.feels_like}°C)</p>
+          <p>💧 Humidity: ${data.weather.humidity}%</p>
+          <p>${data.weather.condition}</p>
+          <div id="mainAnim" class="anim"></div>
+        `;
+        setAnimation("mainAnim", data.weather.condition);
+
+        // Forecast cards
+        forecastCards.innerHTML = "";
+        data.forecast.forEach((item, idx) => {
+          const card = document.createElement("div");
+          card.className = "forecast-card";
+          const animId = `anim-${idx}`;
+          card.innerHTML = `
+            <p><strong>${item.time}</strong></p>
+            <p>${item.temp}°C</p>
+            <div id="${animId}" class="anim"></div>
+            <p>${item.condition}</p>
+          `;
+          forecastCards.appendChild(card);
+          setAnimation(animId, item.condition);
+        });
+
+        // Daily tip
+        tipDiv.innerHTML = `<h3>Tip of the Day 🌍</h3><p>${generateTip(data.weather)}</p>`;
+
+      } catch (err) {
+        console.error("Error fetching weather:", err);
+      }
+    }
+
+    function setAnimation(elementId, condition) {
+      let path = "/static/animations/sunny.json"; // default
+      const cond = condition.toLowerCase();
+      if (cond.includes("rain")) path = "/static/animations/rainy.json";
+      else if (cond.includes("cloud")) path = "/static/animations/cloudy.json";
+      else if (cond.includes("thunder")) path = "/static/animations/thunder.json";
+      else if (cond.includes("snow")) path = "/static/animations/snow.json";
+
+      lottie.loadAnimation({
+        container: document.getElementById(elementId),
+        renderer: "svg",
+        loop: true,
+        autoplay: true,
+        path: path
+      });
+    }
+
+    function generateTip(weather) {
+      const temp = weather.temperature;
+      const condition = weather.condition.toLowerCase();
+
+      if (condition.includes("rain")) return "Don't forget your umbrella ☔";
+      if (condition.includes("snow")) return "Bundle up, it's snowy ❄️";
+      if (condition.includes("thunder")) return "Stay safe indoors ⛈️";
+      if (condition.includes("sun") || condition.includes("clear")) {
+        if (temp > 30) return "Stay hydrated and wear sunscreen 😎";
+        return "A perfect day for a walk 🌞";
+      }
+      if (condition.includes("cloud")) return "Might be gloomy, keep a light jacket ☁️";
+      return "Have a great day 🌍";
+    }
+
+    searchBtn.addEventListener("click", () => {
+      const city = cityInput.value.trim();
+      if (city) fetchWeather(`city=${encodeURIComponent(city)}`);
+      else alert("Please enter a city name.");
+    });
+
+    locationBtn.addEventListener("click", () => {
+      navigator.geolocation.getCurrentPosition(
+        pos => fetchWeather(`lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`),
+        () => alert("Location access denied.")
+      );
+    });
+  </script>
+</body>
+</html>
